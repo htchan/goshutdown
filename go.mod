@@ -1,4 +1,4 @@
-module shutdown
+module github.com/htchan/goshutdown
 
 go 1.21
 
