@@ -2,10 +2,7 @@ module github.com/htchan/goshutdown
 
 go 1.21
 
-require (
-	github.com/stretchr/testify v1.8.4
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
-)
+require github.com/stretchr/testify v1.8.4
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

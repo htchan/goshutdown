@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"time"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 var LogEnabled = false
