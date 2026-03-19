@@ -53,29 +53,28 @@ func (handler *ShutdownHandler) Listen(timeout time.Duration) error {
 
 	// run ShutdownFunc one by one
 	for _, fn := range handler.funcs {
-		f := func() <-chan struct{} {
-			fnComplete := make(chan struct{}, 1)
+		f := func() <-chan error {
+			errCh := make(chan error, 1)
 
 			go func() {
-				defer close(fnComplete)
+				defer close(errCh)
 
-				if err := fn.run(); err != nil {
-					errGroup = errors.Join(errGroup, err)
-					if LogEnabled {
-						slog.Error("shutdown error", "name", fn.name, "error", err)
-					}
+				err := fn.run()
+				if err != nil && LogEnabled {
+					slog.Error("shutdown error", "name", fn.name, "error", err)
 				} else if LogEnabled {
 					slog.Info("shutdown completed", "name", fn.name)
 				}
 
-				fnComplete <- struct{}{}
+				errCh <- err
 			}()
 
-			return fnComplete
+			return errCh
 		}
 
 		select {
-		case <-f():
+		case err := <-f():
+			errGroup = errors.Join(errGroup, err)
 		case <-ctx.Done():
 			if LogEnabled {
 				slog.Info("shutdown timeout", "name", fn.name)
