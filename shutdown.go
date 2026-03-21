@@ -3,6 +3,7 @@ package shutdown
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"time"
@@ -58,6 +59,16 @@ func (handler *ShutdownHandler) Listen(timeout time.Duration) error {
 
 			go func() {
 				defer close(errCh)
+
+				defer func() {
+					if r := recover(); r != nil {
+						if LogEnabled {
+							slog.Error("shutdown panic", "name", fn.name, "panic", r)
+						}
+						errCh <- fmt.Errorf("%w: %v", ErrPanic, r)
+						return
+					}
+				}()
 
 				err := fn.run()
 				if err != nil && LogEnabled {
