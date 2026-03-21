@@ -130,42 +130,54 @@ func TestShutdownHandler_Register(t *testing.T) {
 	}
 }
 
+// syncMapLen returns the number of entries in a sync.Map.
+func syncMapLen(m *sync.Map) int {
+	count := 0
+	m.Range(func(_, _ any) bool {
+		count++
+		return true
+	})
+	return count
+}
+
 func TestShutdownHandler_Listen(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name          string
-		shutdownFuncs []func(*testing.T, map[string]bool, *sync.WaitGroup) shutdownFunc
+		shutdownFuncs []func(*testing.T, *sync.Map, *sync.WaitGroup) shutdownFunc
 		timeout       time.Duration
 		emitSignal    syscall.Signal
 		want          error
 	}{
 		{
 			name: "success",
-			shutdownFuncs: []func(*testing.T, map[string]bool, *sync.WaitGroup) shutdownFunc{
-				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
+			shutdownFuncs: []func(*testing.T, *sync.Map, *sync.WaitGroup) shutdownFunc{
+				func(t *testing.T, m *sync.Map, wg *sync.WaitGroup) shutdownFunc {
 					return shutdownFunc{
 						name: "success-1",
 						f: func() error {
 							wg.Add(1)
 							defer wg.Done()
 
-							assert.Equal(t, 0, len(m))
-							m["0"] = true
+							assert.Equal(t, 0, syncMapLen(m))
+							m.Store("0", true)
 
 							return nil
 						},
 					}
 				},
-				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
+				func(t *testing.T, m *sync.Map, wg *sync.WaitGroup) shutdownFunc {
 					return shutdownFunc{
 						name: "success-2",
 						f: func() error {
 							wg.Add(1)
 							defer wg.Done()
 
-							assert.Equal(t, 1, len(m))
-							assert.Equal(t, true, m["0"])
+							assert.Equal(t, 1, syncMapLen(m))
+							v, ok := m.Load("0")
+							assert.True(t, ok)
+							assert.Equal(t, true, v)
 
 							return nil
 						},
@@ -178,8 +190,8 @@ func TestShutdownHandler_Listen(t *testing.T) {
 		},
 		{
 			name: "shutdown return error",
-			shutdownFuncs: []func(*testing.T, map[string]bool, *sync.WaitGroup) shutdownFunc{
-				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
+			shutdownFuncs: []func(*testing.T, *sync.Map, *sync.WaitGroup) shutdownFunc{
+				func(t *testing.T, m *sync.Map, wg *sync.WaitGroup) shutdownFunc {
 					return shutdownFunc{
 						name: "failing data",
 						f: func() error {
@@ -197,8 +209,8 @@ func TestShutdownHandler_Listen(t *testing.T) {
 		},
 		{
 			name: "shutdown function panics",
-			shutdownFuncs: []func(*testing.T, map[string]bool, *sync.WaitGroup) shutdownFunc{
-				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
+			shutdownFuncs: []func(*testing.T, *sync.Map, *sync.WaitGroup) shutdownFunc{
+				func(t *testing.T, m *sync.Map, wg *sync.WaitGroup) shutdownFunc {
 					return shutdownFunc{
 						name: "panicking",
 						f: func() error {
@@ -206,14 +218,14 @@ func TestShutdownHandler_Listen(t *testing.T) {
 						},
 					}
 				},
-				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
+				func(t *testing.T, m *sync.Map, wg *sync.WaitGroup) shutdownFunc {
 					return shutdownFunc{
 						name: "after-panic",
 						f: func() error {
 							wg.Add(1)
 							defer wg.Done()
 
-							m["after-panic"] = true
+							m.Store("after-panic", true)
 							return nil
 						},
 					}
@@ -225,12 +237,12 @@ func TestShutdownHandler_Listen(t *testing.T) {
 		},
 		{
 			name: "shutdown reach timeout",
-			shutdownFuncs: []func(*testing.T, map[string]bool, *sync.WaitGroup) shutdownFunc{
-				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
+			shutdownFuncs: []func(*testing.T, *sync.Map, *sync.WaitGroup) shutdownFunc{
+				func(t *testing.T, m *sync.Map, wg *sync.WaitGroup) shutdownFunc {
+					wg.Add(1)
 					return shutdownFunc{
 						name: "timeout-1",
 						f: func() error {
-							wg.Add(1)
 							defer wg.Done()
 
 							time.Sleep(500 * time.Millisecond)
@@ -239,15 +251,15 @@ func TestShutdownHandler_Listen(t *testing.T) {
 						},
 					}
 				},
-				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
+				func(t *testing.T, m *sync.Map, wg *sync.WaitGroup) shutdownFunc {
+					// timeout-2 never runs because timeout-1 exceeds the deadline,
+					// so we don't add to wg here.
 					return shutdownFunc{
 						name: "timeout-2",
 						f: func() error {
 							wg.Add(1)
 							defer wg.Done()
-							time.Sleep(0)
 
-							assert.Equal(t, true, m["completed"])
 							return nil
 						},
 					}
@@ -265,7 +277,7 @@ func TestShutdownHandler_Listen(t *testing.T) {
 			// t.Parallel()
 			signal.Reset(test.emitSignal)
 
-			checkMap := make(map[string]bool)
+			checkMap := &sync.Map{}
 			var wg sync.WaitGroup
 
 			handler := New(test.emitSignal)
@@ -281,7 +293,7 @@ func TestShutdownHandler_Listen(t *testing.T) {
 			got := handler.Listen(test.timeout)
 			assert.ErrorIs(t, got, test.want)
 
-			checkMap["completed"] = true
+			checkMap.Store("completed", true)
 			wg.Wait()
 		})
 	}

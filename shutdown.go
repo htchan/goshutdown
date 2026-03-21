@@ -54,6 +54,7 @@ func (handler *ShutdownHandler) Listen(timeout time.Duration) error {
 
 	// run ShutdownFunc one by one
 	for _, fn := range handler.funcs {
+		fn := fn // capture loop variable for goroutine safety
 		f := func() <-chan error {
 			errCh := make(chan error, 1)
 
