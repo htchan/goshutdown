@@ -196,6 +196,34 @@ func TestShutdownHandler_Listen(t *testing.T) {
 			want:       ErrNilFunc,
 		},
 		{
+			name: "shutdown function panics",
+			shutdownFuncs: []func(*testing.T, map[string]bool, *sync.WaitGroup) shutdownFunc{
+				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
+					return shutdownFunc{
+						name: "panicking",
+						f: func() error {
+							panic("something went wrong")
+						},
+					}
+				},
+				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
+					return shutdownFunc{
+						name: "after-panic",
+						f: func() error {
+							wg.Add(1)
+							defer wg.Done()
+
+							m["after-panic"] = true
+							return nil
+						},
+					}
+				},
+			},
+			timeout:    100 * time.Millisecond,
+			emitSignal: syscall.SIGINT,
+			want:       ErrPanic,
+		},
+		{
 			name: "shutdown reach timeout",
 			shutdownFuncs: []func(*testing.T, map[string]bool, *sync.WaitGroup) shutdownFunc{
 				func(t *testing.T, m map[string]bool, wg *sync.WaitGroup) shutdownFunc {
