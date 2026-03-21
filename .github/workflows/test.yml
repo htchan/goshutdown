@@ -27,4 +27,4 @@ jobs:
             go.sum
             go.mod
       - name: Test
-        run: go test -v -race -count=1 ./...
+        run: go test ./... --cover --race --leak
