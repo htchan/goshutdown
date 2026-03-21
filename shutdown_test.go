@@ -3,6 +3,8 @@ package shutdown
 import (
 	"context"
 	"errors"
+	"flag"
+	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -10,7 +12,19 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 )
+
+func TestMain(m *testing.M) {
+	leak := flag.Bool("leak", false, "check for goroutine leaks")
+	flag.Parse()
+
+	if *leak {
+		goleak.VerifyTestMain(m)
+	} else {
+		os.Exit(m.Run())
+	}
+}
 
 func TestShutdownFunc_run(t *testing.T) {
 	t.Parallel()
