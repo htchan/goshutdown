@@ -26,5 +26,13 @@ jobs:
           cache-dependency-path: |
             go.sum
             go.mod
+      - name: Go fix check
+        run: |
+          go fix ./...
+          git diff --exit-code || (echo "go fix produced changes — please run 'go fix ./...' and commit" && exit 1)
+      - name: Go fmt check
+        run: |
+          gofmt -l . | tee /tmp/gofmt.out
+          test ! -s /tmp/gofmt.out || (echo "gofmt found unformatted files — please run 'gofmt -w .' and commit" && exit 1)
       - name: Test
         run: go test ./... --cover --race --leak
