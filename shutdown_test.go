@@ -67,7 +67,6 @@ func TestShutdownFunc_run(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -91,7 +90,6 @@ func TestNew(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -130,7 +128,6 @@ func TestShutdownHandler_Register(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -286,7 +283,6 @@ func TestShutdownHandler_Listen(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			// t.Parallel()
 			signal.Reset(test.emitSignal)
